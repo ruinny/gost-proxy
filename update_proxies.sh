@@ -11,7 +11,7 @@ TEMP_CONFIG_FILE="${CONFIG_FILE}.tmp"
 echo "[$(date)] Running proxy update script..."
 
 # --- 1. 获取代理并生成临时配置文件 ---
-API_RESPONSE=$(curl -s -H "Authorization: Token ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list?mode=direct&page=1&page_size=25")
+API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
 if [ -z "${API_RESPONSE}" ]; then
     echo "[$(date)] ERROR: API response was empty. Skipping update."
