@@ -11,25 +11,31 @@ TEMP_CONFIG_FILE="${CONFIG_FILE}.tmp"
 echo "[$(date)] Running proxy update script..."
 
 # --- 1. 获取代理并生成临时配置文件 ---
+# 使用 curl 从 Webshare API 获取代理列表
 API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
+# 检查 API 响应是否为空
 if [ -z "${API_RESPONSE}" ]; then
     echo "[$(date)] ERROR: API response was empty. Skipping update."
     exit 0
 fi
 
+# 使用 jq 解析 JSON，筛选出美国 (US) 的代理
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[] | select(.country_code == "US")')
 
+# 检查是否找到了美国代理
 if [ -z "$PROXY_LIST_JSON_LINES" ]; then
     echo "[$(date)] ERROR: No 'US' proxies found in API response. Skipping update."
     exit 0
 fi
 
+# 从第一个代理中获取通用的用户名和密码
 FIRST_PROXY_LINE=$(echo "$PROXY_LIST_JSON_LINES" | head -n 1)
 COMMON_USERNAME=$(echo "$FIRST_PROXY_LINE" | jq -r '.username')
 COMMON_PASSWORD=$(echo "$FIRST_PROXY_LINE" | jq -r '.password')
 
 # --- 2. 写入临时配置文件 ---
+# 生成 Gost 配置文件 (gost.yml) 的上半部分
 cat <<EOF > "${TEMP_CONFIG_FILE}"
 resolvers:
   - name: prefer-ipv4-resolver
@@ -47,23 +53,24 @@ services:
           password: "${COMMON_PASSWORD}"
     resolver: prefer-ipv4-resolver
     forwarder:
-      name: random-http-exit
+      name: random-socks-exit # <-- 修改点：名称更清晰
 forwarders:
-  - name: random-http-exit
+  - name: random-socks-exit # <-- 修改点：名称更清晰
     resolver: prefer-ipv4-resolver
     selector:
       strategy: random
     nodes:
 EOF
 
+# 循环遍历每个代理，将其作为 node 添加到配置文件中
 echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
   PROXY_ADDRESS=$(echo "$proxy_line" | jq -r '.proxy_address')
   PROXY_PORT=$(echo "$proxy_line" | jq -r '.port')
   cat <<EOF >> "${TEMP_CONFIG_FILE}"
-      - name: http-proxy-${PROXY_ADDRESS}
+      - name: socks5-proxy-${PROXY_ADDRESS} # <-- 修改点：名称更清晰
         addr: ${PROXY_ADDRESS}:${PROXY_PORT}
         connector:
-          type: http
+          type: socks5 # <-- 关键修改：将连接器类型从 http 改为 socks5
           auths:
             - username: "${COMMON_USERNAME}"
               password: "${COMMON_PASSWORD}"
@@ -71,6 +78,7 @@ EOF
 done
 
 # --- 3. 原子性替换配置文件 ---
+# 使用 mv 原子性地替换旧的配置文件，避免 Gost 读取到不完整的配置
 mv "${TEMP_CONFIG_FILE}" "${CONFIG_FILE}"
 echo "[$(date)] Successfully generated new config file."
 
@@ -81,9 +89,10 @@ GOST_PID=$(pidof gost || true)
 
 if [ -n "$GOST_PID" ]; then
     echo "[$(date)] Found Gost process with PID: $GOST_PID. Sending SIGHUP for hot reload."
+    # 发送 SIGHUP 信号给 Gost 进程，使其重新加载配置文件而无需重启
     kill -HUP "$GOST_PID"
     echo "[$(date)] SIGHUP signal sent."
 else
-    # 首次启动时会进入这个分支
+    # 首次启动时，Gost 进程还未运行，找不到 PID 是正常现象
     echo "[$(date)] WARNING: Gost process not found. Skipping hot reload (this is normal on initial startup)."
 fi
