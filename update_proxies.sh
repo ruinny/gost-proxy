@@ -34,15 +34,10 @@ FIRST_PROXY_LINE=$(echo "$PROXY_LIST_JSON_LINES" | head -n 1)
 COMMON_USERNAME=$(echo "$FIRST_PROXY_LINE" | jq -r '.username')
 COMMON_PASSWORD=$(echo "$FIRST_PROXY_LINE" | jq -r '.password')
 
-# --- 2. 写入临时配置文件 ---
-# 生成 Gost 配置文件 (gost.yml) 的上半部分
+# --- 2. 写入临时配置文件 (简化版) ---
+# 生成 Gost 配置文件 (gost.yml) 的上半部分。
+# 移除了 resolvers 和相关的 resolver 引用。
 cat <<EOF > "${TEMP_CONFIG_FILE}"
-resolvers:
-  - name: prefer-ipv4-resolver
-    nameservers:
-      - addr: 8.8.8.8
-      - addr: 1.1.1.1
-    prefer: ipv4
 services:
   - name: socks5-entry-point
     addr: ":10808"
@@ -51,14 +46,12 @@ services:
       auths:
         - username: "${COMMON_USERNAME}"
           password: "${COMMON_PASSWORD}"
-    resolver: prefer-ipv4-resolver
     forwarder:
-      name: random-socks-exit # <-- 修改点：名称更清晰
+      name: round-robin-exit
 forwarders:
-  - name: random-socks-exit # <-- 修改点：名称更清晰
-    resolver: prefer-ipv4-resolver
+  - name: round-robin-exit
     selector:
-      strategy: random
+      strategy: round # <-- 关键修改：从 random 改为 round (轮询)
     nodes:
 EOF
 
@@ -67,10 +60,10 @@ echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
   PROXY_ADDRESS=$(echo "$proxy_line" | jq -r '.proxy_address')
   PROXY_PORT=$(echo "$proxy_line" | jq -r '.port')
   cat <<EOF >> "${TEMP_CONFIG_FILE}"
-      - name: socks5-proxy-${PROXY_ADDRESS} # <-- 修改点：名称更清晰
+      - name: socks5-proxy-${PROXY_ADDRESS}
         addr: ${PROXY_ADDRESS}:${PROXY_PORT}
         connector:
-          type: socks5 # <-- 关键修改：将连接器类型从 http 改为 socks5
+          type: socks5
           auths:
             - username: "${COMMON_USERNAME}"
               password: "${COMMON_PASSWORD}"
@@ -80,7 +73,7 @@ done
 # --- 3. 原子性替换配置文件 ---
 # 使用 mv 原子性地替换旧的配置文件，避免 Gost 读取到不完整的配置
 mv "${TEMP_CONFIG_FILE}" "${CONFIG_FILE}"
-echo "[$(date)] Successfully generated new config file."
+echo "[$(date)] Successfully generated new and simplified config file."
 
 # --- 4. 热重载 Gost ---
 # 查找 gost 进程的 PID。
