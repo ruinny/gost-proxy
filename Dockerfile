@@ -5,8 +5,8 @@ FROM alpine:latest
 ENV GOST_VERSION=3.2.6
 ENV GOST_ARCH=amd64
 
-# 安装必要的工具 (curl, tar) 并下载、安装 Gost v3
-RUN apk add --no-cache curl tar && \
+# 安装必要的工具 (curl, tar) 和新增的 JSON 处理工具 (jq)
+RUN apk add --no-cache curl tar jq && \
     # 根据环境变量构建下载 URL
     curl -L "https://github.com/go-gost/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_${GOST_ARCH}.tar.gz" -o gost.tar.gz && \
     # 解压归档文件
