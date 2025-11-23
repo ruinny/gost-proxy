@@ -11,7 +11,7 @@ echo "[$(date)] Running proxy update script..."
 # --- 1. 获取代理并生成临时配置文件 ---
 API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
-# 修改: 如果 API 响应为空，则以失败状态退出
+# 如果 API 响应为空，则以失败状态退出
 if [ -z "${API_RESPONSE}" ]; then
     echo "[$(date)] ERROR: API response was empty. Aborting."
     exit 1
@@ -19,7 +19,7 @@ fi
 
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[] | select(.country_code == "US")')
 
-# 修改: 如果找不到美国代理，则以失败状态退出
+# 如果找不到美国代理，则以失败状态退出
 if [ -z "$PROXY_LIST_JSON_LINES" ]; then
     echo "[$(date)] ERROR: No 'US' proxies found in API response. Aborting."
     exit 1
@@ -48,8 +48,7 @@ forwarders:
     nodes:
 EOF
 
-# 新增: 用于检查是否成功添加了任何节点
-NODE_COUNT=0
+# 循环遍历每个代理，将其作为 node 添加到配置文件中
 echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
   PROXY_ADDRESS=$(echo "$proxy_line" | jq -r '.proxy_address')
   PROXY_PORT=$(echo "$proxy_line" | jq -r '.port')
@@ -62,19 +61,11 @@ echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
             - username: "${COMMON_USERNAME}"
               password: "${COMMON_PASSWORD}"
 EOF
-  # 新增: 节点计数
-  NODE_COUNT=$((NODE_COUNT + 1))
 done
-
-# 新增: 检查是否至少有一个节点被添加
-if [ "$NODE_COUNT" -eq 0 ]; then
-    echo "[$(date)] ERROR: No nodes were added to the config file. Aborting."
-    exit 1
-fi
 
 # --- 3. 原子性替换配置文件 ---
 mv "${TEMP_CONFIG_FILE}" "${CONFIG_FILE}"
-echo "[$(date)] Successfully generated new config file with $NODE_COUNT proxies."
+echo "[$(date)] Successfully generated new config file."
 
 # --- 4. 热重载 Gost ---
 GOST_PID=$(pidof gost || true)
