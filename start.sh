@@ -20,7 +20,7 @@ mkdir -p "${CONFIG_DIR}"
 echo "正在从 Webshare API 获取代理列表..."
 
 # 首先，获取 API 的原始响应并存储在变量中
-API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list?mode=direct&page=1&page_size=25")
+API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
 # 新增：打印 API 的原始响应，这是最重要的调试信息！
 echo "---------- Webshare API 原始响应内容 开始 ----------"
