@@ -6,16 +6,16 @@ set -e
 # 定义配置文件路径
 CONFIG_DIR="/app/config"
 CONFIG_FILE="${CONFIG_DIR}/gost.yml"
-TEMP_CONFIG_FILE="${CONFIG_FILE}.tmp" # 使用临时文件防止写入冲突
+TEMP_CONFIG_FILE="${CONFIG_FILE}.tmp"
 
 echo "[$(date)] Running proxy update script..."
 
 # --- 1. 获取代理并生成临时配置文件 ---
-API_RESPONSE=$(curl -s -H "Authorization: Token ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
+API_RESPONSE=$(curl -s -H "Authorization: Token ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list?mode=direct&page=1&page_size=25")
 
 if [ -z "${API_RESPONSE}" ]; then
     echo "[$(date)] ERROR: API response was empty. Skipping update."
-    exit 0 # 正常退出，不让 cron 报错
+    exit 0
 fi
 
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[] | select(.country_code == "US")')
@@ -75,14 +75,15 @@ mv "${TEMP_CONFIG_FILE}" "${CONFIG_FILE}"
 echo "[$(date)] Successfully generated new config file."
 
 # --- 4. 热重载 Gost ---
-# 查找 gost 进程的 PID
-GOST_PID=$(pidof gost)
+# 查找 gost 进程的 PID。
+# 使用 '|| true' 来确保即使 pidof 失败 (找不到进程)，脚本也不会因 'set -e' 而退出。
+GOST_PID=$(pidof gost || true)
 
 if [ -n "$GOST_PID" ]; then
     echo "[$(date)] Found Gost process with PID: $GOST_PID. Sending SIGHUP for hot reload."
-    # 发送 SIGHUP 信号
     kill -HUP "$GOST_PID"
     echo "[$(date)] SIGHUP signal sent."
 else
-    echo "[$(date)] WARNING: Gost process not found. Skipping hot reload."
+    # 首次启动时会进入这个分支
+    echo "[$(date)] WARNING: Gost process not found. Skipping hot reload (this is normal on initial startup)."
 fi
