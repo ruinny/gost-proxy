@@ -20,7 +20,6 @@ mkdir -p "${CONFIG_DIR}"
 echo "正在从 Webshare API 获取代理列表..."
 API_RESPONSE=$(curl -s -H "Authorization: Token ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
-# 检查原始响应是否为空
 if [ -z "${API_RESPONSE}" ]; then
     echo "致命错误：从 Webshare API 获取到的响应为空。请检查网络连接。"
     exit 1
@@ -67,6 +66,8 @@ services:
 
 forwarders:
   - name: random-http-exit
+    # --- 关键修复：在这里也应用解析器 ---
+    resolver: prefer-ipv4-resolver
     selector:
       strategy: random
     nodes:
@@ -87,13 +88,9 @@ EOF
 done
 
 echo "配置文件生成成功。"
-
-# --- 新增的验证步骤 ---
 echo "---------- 准备使用的 gost.yml 内容 开始 ----------"
 cat "${CONFIG_FILE}"
 echo "---------- 准备使用的 gost.yml 内容 结束 ----------"
-# --- 验证步骤结束 ---
-
 echo "启动 Gost 服务..."
 
 # --- 4. 启动 Gost ---
