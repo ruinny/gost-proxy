@@ -1,41 +1,22 @@
-#!/bin/sh
+#!/bin/bash
+# START OF FILE start.sh
 
-set -e
+echo "Starting Gost Proxy Container..."
 
-CONFIG_DIR="/app/config"
-CONFIG_FILE="${CONFIG_DIR}/gost.yml"
+# 1. 启动 Cron 守护进程 (后台运行)
+# -s: 前台运行 (不使用，我们需要它在后台)
+# -L: 日志级别
+crond -b -L /var/log/crond.log
+echo "Cron daemon started."
 
-# --- 1. 检查环境变量 ---
-if [ -z "${WEBSHARE_API_TOKEN}" ]; then
-  echo "致命错误：环境变量 WEBSHARE_API_TOKEN 未设置。"
-  exit 1
+# 2. 首次运行更新脚本，确保启动时有配置文件
+if [ ! -f "/app/gost.yaml" ] && [ -z "$GOST_CONFIG" ]; then
+    echo "Config not found, running update_proxies.sh for the first time..."
+    ./update_proxies.sh
 fi
 
-echo "正在创建配置目录: ${CONFIG_DIR}"
-mkdir -p "${CONFIG_DIR}"
-
-# --- 2. 首次启动时获取配置 ---
-echo "Waiting for network to be ready..."
-# 新增: 等待 3 秒，给容器网络环境一点缓冲时间
-sleep 3
-
-echo "Performing initial proxy list fetch on startup..."
-# 如果 update_proxies.sh 失败 (exit 1), 整个脚本会因为 set -e 而中止
-/app/update_proxies.sh
-
-# --- 3. 启动前的最后检查 ---
-# 新增: 检查配置文件是否成功生成且不为空
-if [ ! -s "${CONFIG_FILE}" ]; then
-    echo "致命错误：配置文件 ${CONFIG_FILE} 未能成功生成或为空。"
-    exit 1
-fi
-echo "配置文件已成功生成。"
-
-# --- 4. 启动 Cron 服务 ---
-echo "Starting cron daemon in the background..."
-crond -f &
-
-# --- 5. 启动 Gost 服务 ---
-echo "Starting Gost service in the foreground..."
-# 使用 exec 可以让 gost 成为 PID 1 进程，更好地接收信号
-exec /usr/local/bin/gost -C "${CONFIG_FILE}"
+# 3. 启动 Gost
+# 使用 exec 让 gost 替换当前 shell 成为 PID 1，接收系统信号
+echo "Starting Gost..."
+exec gost -C /app/gost.yaml
+# END OF FILE start.sh
