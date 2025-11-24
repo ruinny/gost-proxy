@@ -36,16 +36,17 @@ services:
     addr: ":10808"
     handler:
       type: socks5
-      auths:
-        - username: "${COMMON_USERNAME}"
+      auth:
+          username: "${COMMON_USERNAME}"
           password: "${COMMON_PASSWORD}"
-    forwarder:
-      name: random-http-exit
-forwarders:
-  - name: random-http-exit
-    selector:
-      strategy: random
-    nodes:
+    listener:
+      type: tcp
+chains:
+- name: random-http-exit
+  hops:
+  - name: random-http-hop
+    strategy: random 
+    nodes: 
 EOF
 
 # 循环遍历每个代理，将其作为 node 添加到配置文件中
@@ -57,8 +58,8 @@ echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
         addr: ${PROXY_ADDRESS}:${PROXY_PORT}
         connector:
           type: http
-          auths:
-            - username: "${COMMON_USERNAME}"
+          auth:
+              username: "${COMMON_USERNAME}"
               password: "${COMMON_PASSWORD}"
 EOF
 done
