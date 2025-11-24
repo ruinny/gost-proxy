@@ -26,8 +26,8 @@ if [ -z "$PROXY_LIST_JSON_LINES" ]; then
 fi
 
 FIRST_PROXY_LINE=$(echo "$PROXY_LIST_JSON_LINES" | head -n 1)
-COMMON_USERNAME=$(echo "$FIRST_PROXY_LINE" | jq -r '.username')
-COMMON_PASSWORD=$(echo "$FIRST_PROXY_LINE" | jq -r '.password')
+COMMON_USERNAME="${proxy_username}"
+COMMON_PASSWORD="${proxy_password}"
 
 # --- 2. 写入临时配置文件 ---
 cat <<EOF > "${TEMP_CONFIG_FILE}"
