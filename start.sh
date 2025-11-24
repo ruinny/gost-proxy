@@ -1,41 +1,44 @@
 #!/bin/sh
-
 set -e
 
 CONFIG_DIR="/app/config"
 CONFIG_FILE="${CONFIG_DIR}/gost.yml"
 
-# --- 1. 检查环境变量 ---
+# 检查环境变量
 if [ -z "${WEBSHARE_API_TOKEN}" ]; then
-  echo "致命错误：环境变量 WEBSHARE_API_TOKEN 未设置。"
+  echo "错误：环境变量 WEBSHARE_API_TOKEN 未设置"
   exit 1
 fi
 
-echo "正在创建配置目录: ${CONFIG_DIR}"
+echo "创建配置目录: ${CONFIG_DIR}"
 mkdir -p "${CONFIG_DIR}"
 
-# --- 2. 首次启动时获取配置 ---
-echo "Waiting for network to be ready..."
-# 新增: 等待 3 秒，给容器网络环境一点缓冲时间
+# 等待网络就绪
+echo "等待网络就绪..."
 sleep 3
 
-echo "Performing initial proxy list fetch on startup..."
-# 如果 update_proxies.sh 失败 (exit 1), 整个脚本会因为 set -e 而中止
+# 首次启动时获取代理配置
+echo "执行初始代理列表获取..."
 /app/update_proxies.sh
 
-# --- 3. 启动前的最后检查 ---
-# 新增: 检查配置文件是否成功生成且不为空
+# 验证配置文件
 if [ ! -s "${CONFIG_FILE}" ]; then
-    echo "致命错误：配置文件 ${CONFIG_FILE} 未能成功生成或为空。"
+    echo "错误：配置文件生成失败"
     exit 1
 fi
-echo "配置文件已成功生成。"
+echo "配置文件生成成功"
 
-# --- 4. 启动 Cron 服务 ---
-echo "Starting cron daemon in the background..."
+# 启动 Web 管理界面
+echo "启动 Web 管理界面 (端口 5000)..."
+cd /app/web
+python3 app.py &
+WEB_PID=$!
+echo "Web 界面已启动 (PID: ${WEB_PID})"
+
+# 启动 Cron 定时任务
+echo "启动 Cron 定时任务..."
 crond -f &
 
-# --- 5. 启动 Gost 服务 ---
-echo "Starting Gost service in the foreground..."
-# 使用 exec 可以让 gost 成为 PID 1 进程，更好地接收信号
-exec /usr/local/bin/gost -C "${CONFIG_FILE}" -D 
+# 启动 Gost 代理服务
+echo "启动 Gost 代理服务 (端口 10808)..."
+exec /usr/local/bin/gost -C "${CONFIG_FILE}" -D

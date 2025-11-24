@@ -1,35 +1,41 @@
 #!/bin/sh
-
 set -e
 
 CONFIG_DIR="/app/config"
 CONFIG_FILE="${CONFIG_DIR}/gost.yml"
 TEMP_CONFIG_FILE="${CONFIG_FILE}.tmp"
+LOG_FILE="/app/logs/update.log"
 
-echo "[$(date)] Running proxy update script..."
+# 日志函数
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
 
-# --- 1. 获取代理并生成临时配置文件 ---
+log_message "开始更新代理列表..."
+
+# 获取代理列表
 API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25")
 
-# 如果 API 响应为空，则以失败状态退出
 if [ -z "${API_RESPONSE}" ]; then
-    echo "[$(date)] ERROR: API response was empty. Aborting."
+    log_message "错误：API 响应为空"
     exit 1
 fi
 
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[] | select(.country_code == "US")')
 
-# 如果找不到美国代理，则以失败状态退出
 if [ -z "$PROXY_LIST_JSON_LINES" ]; then
-    echo "[$(date)] ERROR: No 'US' proxies found in API response. Aborting."
+    log_message "错误：未找到美国代理"
     exit 1
 fi
+
+PROXY_COUNT=$(echo "$PROXY_LIST_JSON_LINES" | wc -l)
+log_message "找到 ${PROXY_COUNT} 个美国代理"
 
 FIRST_PROXY_LINE=$(echo "$PROXY_LIST_JSON_LINES" | head -n 1)
 COMMON_USERNAME=$(echo "$FIRST_PROXY_LINE" | jq -r '.username')
 COMMON_PASSWORD=$(echo "$FIRST_PROXY_LINE" | jq -r '.password')
 
-# --- 2. 写入临时配置文件 ---
+# 生成配置文件
 cat <<EOF > "${TEMP_CONFIG_FILE}"
 services:
   - name: socks5-entry-point
@@ -65,17 +71,19 @@ echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
 EOF
 done
 
-# --- 3. 原子性替换配置文件 ---
+# 原子性替换配置文件
 mv "${TEMP_CONFIG_FILE}" "${CONFIG_FILE}"
-echo "[$(date)] Successfully generated new config file."
+log_message "配置文件生成成功"
 
-# --- 4. 热重载 Gost ---
+# 热重载 Gost
 GOST_PID=$(pidof gost || true)
 
 if [ -n "$GOST_PID" ]; then
-    echo "[$(date)] Found Gost process with PID: $GOST_PID. Sending SIGHUP for hot reload."
+    log_message "向 Gost 进程 (PID: $GOST_PID) 发送 SIGHUP 信号"
     kill -HUP "$GOST_PID"
-    echo "[$(date)] SIGHUP signal sent."
+    log_message "热重载完成"
 else
-    echo "[$(date)] WARNING: Gost process not found. Skipping hot reload (this is normal on initial startup)."
+    log_message "Gost 进程未运行（首次启动时正常）"
 fi
+
+log_message "代理更新完成，共 ${PROXY_COUNT} 个代理"
