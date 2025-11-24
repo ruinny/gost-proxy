@@ -1,2 +1,1 @@
-# 每小时运行一次 (输出重定向到 Docker 日志标准输出)
 0 * * * * /app/update_proxies.sh >> /proc/1/fd/1 2>> /proc/1/fd/2

@@ -1,47 +1,29 @@
-# START OF FILE Dockerfile
+# 使用一个轻量的 Alpine Linux 作为基础镜像
 FROM alpine:latest
 
-# 设置构建参数，允许构建时覆盖
-ARG GOST_VERSION=3.3.0
+# 设置环境变量
+ENV GOST_VERSION=3.2.6
+ENV GOST_ARCH=amd64
 
-# 安装必要的工具
-# ca-certificates: 用于 HTTPS
-# tzdata: 用于设置时区
-# libcap: 用于赋予非 root 用户绑定端口权限(可选，此处保持简单暂不配置)
-RUN apk add --no-cache curl tar jq dcron procps ca-certificates tzdata bash
-
-# 设置时区 (默认为上海，可根据需要修改)
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# 自动检测架构并下载对应版本的 Gost
-RUN ARCH=$(uname -m) && \
-    case "$ARCH" in \
-        x86_64) GOST_ARCH="amd64" ;; \
-        aarch64) GOST_ARCH="arm64" ;; \
-        armv7l) GOST_ARCH="armv7" ;; \
-        *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
-    esac && \
-    echo "Downloading Gost v${GOST_VERSION} for ${GOST_ARCH}..." && \
+# 安装必要的工具: curl, tar, jq, dcron (cron daemon), procps (for pidof)
+RUN apk add --no-cache curl tar jq dcron procps && \
     curl -L "https://github.com/go-gost/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_${GOST_ARCH}.tar.gz" -o gost.tar.gz && \
     tar -zxvf gost.tar.gz && \
     mv gost /usr/local/bin/gost && \
     chmod +x /usr/local/bin/gost && \
-    rm gost.tar.gz README* LICENSE*
+    rm gost.tar.gz
 
+# 设置工作目录
 WORKDIR /app
 
-# 复制脚本
-COPY start.sh update_proxies.sh gost_cron ./
+# 复制所有需要的脚本和配置文件
+COPY start.sh update_proxies.sh gost_cron .
+# 确保脚本是可执行的
 RUN chmod +x ./start.sh ./update_proxies.sh
 
-# 设置 Cron
+# 设置 Cron 任务
 RUN mkdir -p /etc/crontabs && \
-    cp gost_cron /etc/crontabs/root && \
-    chmod 0644 /etc/crontabs/root
+    mv gost_cron /etc/crontabs/root
 
-# 暴露端口 (根据实际使用情况修改，Zeabur 会自动识别)
-EXPOSE 8080
-
+# 定义容器的入口点
 ENTRYPOINT ["./start.sh"]
-# END OF FILE Dockerfile
