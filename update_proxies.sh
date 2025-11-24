@@ -39,6 +39,7 @@ services:
       auth:
           username: "${COMMON_USERNAME}"
           password: "${COMMON_PASSWORD}"
+      chain: random-http-exit
     listener:
       type: tcp
 chains:
@@ -54,13 +55,13 @@ echo "$PROXY_LIST_JSON_LINES" | while read -r proxy_line; do
   PROXY_ADDRESS=$(echo "$proxy_line" | jq -r '.proxy_address')
   PROXY_PORT=$(echo "$proxy_line" | jq -r '.port')
   cat <<EOF >> "${TEMP_CONFIG_FILE}"
-      - name: http-proxy-${PROXY_ADDRESS}
-        addr: ${PROXY_ADDRESS}:${PROXY_PORT}
-        connector:
-          type: http
-          auth:
-              username: "${COMMON_USERNAME}"
-              password: "${COMMON_PASSWORD}"
+    - name: http-proxy-${PROXY_ADDRESS}
+      addr: ${PROXY_ADDRESS}:${PROXY_PORT}
+      connector:
+        type: http
+        auth:
+            username: "${COMMON_USERNAME}"
+            password: "${COMMON_PASSWORD}"
 EOF
 done
 
