@@ -38,4 +38,4 @@ crond -f &
 # --- 5. 启动 Gost 服务 ---
 echo "Starting Gost service in the foreground..."
 # 使用 exec 可以让 gost 成为 PID 1 进程，更好地接收信号
-exec /usr/local/bin/gost -C "${CONFIG_FILE}" -D -O /app/gost.log
+exec /usr/local/bin/gost -C "${CONFIG_FILE}" -D 
