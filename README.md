@@ -7,29 +7,33 @@
 
 基于 [Gost v3.2.6](https://github.com/go-gost/gost) 的智能动态代理池，自动从 [Webshare.io](https://www.webshare.io/) 获取代理服务器，构建高可用的 SOCKS5 代理服务，支持定时更新和热重载。
 
-**新增功能**：内置 Web 管理界面，实时监控代理状态！
+内置 Web 管理界面（shadcn/ui 风格 + 马卡龙配色），实时监控代理状态，前台展示 SOCKS5 代理地址（密码保护）。
 
-## ✨ 核心功能
+## 核心功能
 
-- **🔄 动态代理池**: 自动从 Webshare API 获取最新代理列表
-- **🔥 热重载**: 每 5 分钟自动更新，服务不中断
-- **⚡ 高可用**: 多代理随机选择，避免单点故障
-- **🌍 区域筛选**: 默认筛选美国代理，可自定义
-- **🔐 统一认证**: 使用 Webshare 凭证作为入口认证
-- **📊 Web 管理**: 实时查看代理状态、日志和配置
-- **🚀 部署友好**: 支持 Zeabur、Docker 等多种部署方式
+- **动态代理池**: 自动从 Webshare API 获取最新代理列表
+- **热重载**: 每 5 分钟自动更新，通过 SIGHUP 信号重载 Gost，服务不中断
+- **高可用**: 多代理随机选择（random 策略），避免单点故障
+- **区域筛选**: 默认筛选美国代理，可自定义国家代码
+- **统一认证**: 使用 Webshare 凭证作为 SOCKS5 入口认证
+- **Web 管理面板**: 实时查看代理状态、日志和配置，支持一键复制代理地址
+- **密码保护**: SOCKS5 代理地址需要输入密码才能查看，防止未授权访问
+- **部署友好**: 支持 Zeabur、Docker、Docker Compose 等多种部署方式
 
-## 🎯 工作原理
+## 工作原理
 
 ```
-客户端 → SOCKS5 (:10808) → 随机选择代理 → Webshare 代理池 → 目标网站
-                ↓
-         Web 管理界面 (:5000)
+客户端 --> SOCKS5 (:10808) --> 随机选择代理 --> Webshare 代理池 --> 目标网站
+                |
+         Web 管理面板 (:5000)
 ```
 
-系统每 5 分钟自动更新代理列表，通过 SIGHUP 信号热重载 Gost 配置，无需重启服务。
+1. `start.sh` 启动时执行 `update_proxies.sh` 首次获取代理列表，生成 `gost.yml`
+2. Gost 以 SOCKS5 协议监听 10808 端口，通过 chain 随机转发至 Webshare HTTP 代理
+3. Cron 每 5 分钟执行 `update_proxies.sh`，更新配置后向 Gost 发送 SIGHUP 热重载
+4. Flask Web 面板在 5000 端口提供状态监控、代理列表查看、日志查看和 SOCKS5 地址展示
 
-## 🚀 快速部署
+## 快速部署
 
 ### 方式一：Zeabur 一键部署（推荐）
 
@@ -41,14 +45,16 @@
    - 选择你 Fork 的仓库
 
 3. **配置环境变量**
-   
-   | 变量名 | 说明 | 获取方式 |
-   |--------|------|----------|
-   | `WEBSHARE_API_TOKEN` | Webshare API 密钥 | [获取 API Key](https://proxy.webshare.io/user/settings/api-key) |
+
+   | 变量名 | 必填 | 说明 |
+   |--------|------|------|
+   | `WEBSHARE_API_TOKEN` | 是 | Webshare API 密钥，[获取地址](https://proxy.webshare.io/user/settings/api-key) |
+   | `PANEL_PASSWORD` | 否 | Web 面板查看代理地址的密码，默认 `qwert123` |
+   | `SOCKS5_HOST` | 否 | SOCKS5 地址中显示的主机名，默认取请求 Host |
 
 4. **访问服务**
    - SOCKS5 代理：`your-domain.zeabur.app:10808`
-   - Web 管理界面：`http://your-domain.zeabur.app:5000`
+   - Web 管理面板：`http://your-domain.zeabur.app:5000`
 
 ### 方式二：Docker 本地部署
 
@@ -66,6 +72,7 @@ docker run -d \
   -p 10808:10808 \
   -p 5000:5000 \
   -e WEBSHARE_API_TOKEN="your_api_token_here" \
+  -e PANEL_PASSWORD="your_password_here" \
   gost-proxy:latest
 
 # 查看日志
@@ -88,6 +95,7 @@ services:
       - "5000:5000"
     environment:
       - WEBSHARE_API_TOKEN=your_api_token_here
+      - PANEL_PASSWORD=qwert123
     restart: unless-stopped
 ```
 
@@ -97,7 +105,7 @@ services:
 docker-compose up -d
 ```
 
-## 📖 使用指南
+## 使用指南
 
 ### 获取代理凭证
 
@@ -105,29 +113,29 @@ docker-compose up -d
 2. 进入 [Proxy List](https://proxy.webshare.io/proxy/list)
 3. 查看任意代理的 Username 和 Password（所有代理共享）
 
-### 代理配置
+### Web 管理面板
 
-| 配置项 | 值 |
-|--------|-----|
-| **代理地址** | 你的服务域名或 IP |
-| **代理端口** | `10808` |
-| **协议** | SOCKS5 |
-| **用户名** | Webshare 代理用户名 |
-| **密码** | Webshare 代理密码 |
+访问 `http://your-domain:5000` 即可看到管理面板：
 
-### 使用示例
+- **SOCKS5 代理地址**: 输入面板密码后解锁查看，支持一键复制
+- **系统状态卡片**: Gost 运行状态、代理数量、最后更新时间、监听端口
+- **代理列表**: 实时查看所有活跃的上游代理节点
+- **日志记录**: 查看最近 50 条更新日志
+- **自动刷新**: 每 10 秒自动拉取最新数据
 
-#### 1. curl 测试
+### 代理使用示例
+
+代理地址格式：`socks5://username:password@host:10808`
+
+可在 Web 面板中一键复制完整地址，然后配置到你的应用中。
+
+#### curl 测试
 
 ```bash
-# 测试连接
 curl --proxy "socks5://user:pass@your-domain:10808" "https://api.ipify.org?format=json"
-
-# 检查 IP
-curl --proxy "socks5://user:pass@your-domain:10808" "https://ifconfig.me"
 ```
 
-#### 2. Python 使用
+#### Python
 
 ```python
 import requests
@@ -141,32 +149,31 @@ response = requests.get('https://api.ipify.org?format=json', proxies=proxies)
 print(response.json())
 ```
 
-### Web 管理界面
+## 环境变量
 
-访问 `http://your-domain:5000` 查看：
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `WEBSHARE_API_TOKEN` | 是 | - | Webshare API 密钥 |
+| `PANEL_PASSWORD` | 否 | `qwert123` | Web 面板查看 SOCKS5 地址的密码 |
+| `SOCKS5_HOST` | 否 | 请求 Host | SOCKS5 地址中显示的主机名 |
 
-- **系统状态**: Gost 运行状态、代理数量、更新时间
-- **代理列表**: 实时查看所有活跃代理
-- **日志记录**: 查看更新日志和错误信息
-- **自动刷新**: 每 10 秒自动更新数据
-
-## 🔧 自定义配置
+## 自定义配置
 
 ### 修改代理区域
 
-编辑 [`update_proxies.sh`](update_proxies.sh:20)：
+编辑 `update_proxies.sh`：
 
 ```bash
 # 使用英国代理
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[] | select(.country_code == "GB")')
 
-# 使用所有代理
+# 使用所有代理（不限区域）
 PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[]')
 ```
 
 ### 修改更新频率
 
-编辑 [`gost_cron`](gost_cron:1)：
+编辑 `gost_cron`：
 
 ```bash
 # 每 10 分钟
@@ -178,39 +185,45 @@ PROXY_LIST_JSON_LINES=$(echo "${API_RESPONSE}" | jq -c '.results[]')
 
 ### 修改监听端口
 
-编辑 [`update_proxies.sh`](update_proxies.sh:36) 中的 `addr: ":10808"` 和 [`Dockerfile`](Dockerfile) 中的 `EXPOSE` 指令。
+编辑 `update_proxies.sh` 中的 `addr: ":10808"` 和 `Dockerfile` 中的 `EXPOSE` 指令。
 
 ### 修改代理数量
 
-编辑 [`update_proxies.sh`](update_proxies.sh:12)：
+编辑 `update_proxies.sh`：
 
 ```bash
 # 获取 50 个代理
-API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=50")
+API_RESPONSE=$(curl -s -H "Authorization: ${WEBSHARE_API_TOKEN}" \
+  "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=50")
 ```
 
-## 🐛 故障排查
+## API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | Web 管理面板页面 |
+| `/api/status` | GET | 系统状态（Gost 运行状态、代理数量、更新时间） |
+| `/api/proxies` | GET | 代理列表（名称、地址、类型、状态） |
+| `/api/logs` | GET | 最近 50 条更新日志 |
+| `/api/config` | GET | Gost 配置文件原始内容 |
+| `/api/socks5-address?password=xxx` | GET | SOCKS5 代理连接地址（需密码验证） |
+
+## 故障排查
 
 ### 容器启动失败
 
-**原因**: 未设置 `WEBSHARE_API_TOKEN` 或 Token 无效
-
-**解决**:
 ```bash
 # 检查环境变量
 docker exec gost-proxy env | grep WEBSHARE
 
-# 查看日志
+# 查看启动日志
 docker logs gost-proxy
 ```
 
 ### 无法连接代理
 
-**原因**: 端口未映射或认证信息错误
-
-**解决**:
 ```bash
-# 检查端口
+# 检查端口映射
 docker port gost-proxy
 
 # 测试本地连接
@@ -219,22 +232,16 @@ curl --proxy "socks5://user:pass@localhost:10808" "https://api.ipify.org?format=
 
 ### 代理列表未更新
 
-**原因**: Cron 未执行或 API 请求失败
-
-**解决**:
 ```bash
-# 查看日志
+# 查看更新日志
 docker logs gost-proxy | grep "代理更新"
 
 # 手动执行更新
 docker exec gost-proxy /app/update_proxies.sh
 ```
 
-### Web 界面无法访问
+### Web 面板无法访问
 
-**原因**: 端口未映射或 Flask 未启动
-
-**解决**:
 ```bash
 # 检查 Flask 进程
 docker exec gost-proxy ps aux | grep python
@@ -243,58 +250,58 @@ docker exec gost-proxy ps aux | grep python
 docker port gost-proxy 5000
 ```
 
-## 📁 项目结构
+## 项目结构
 
 ```
 gost-proxy/
-├── Dockerfile              # Docker 镜像构建
-├── start.sh               # 容器启动脚本
-├── update_proxies.sh      # 代理更新脚本
-├── gost_cron              # Cron 定时任务
-├── README.md              # 项目文档
-└── web/                   # Web 管理界面
-    ├── app.py            # Flask 后端
-    ├── static/           # 静态资源
-    │   ├── style.css    # 样式文件
-    │   └── script.js    # 前端脚本
-    └── templates/        # HTML 模板
-        └── index.html   # 主页面
+├── Dockerfile              # Docker 镜像构建（Alpine + Gost + Python Flask）
+├── start.sh                # 容器启动入口（初始化 → Web → Cron → Gost）
+├── update_proxies.sh       # 代理列表更新脚本（调用 Webshare API → 生成 gost.yml → 热重载）
+├── gost_cron               # Cron 定时任务（每 5 分钟更新）
+├── README.md               # 项目文档
+└── web/                    # Web 管理面板
+    ├── app.py              # Flask 后端（状态 API + SOCKS5 地址 API）
+    ├── static/
+    │   ├── style.css       # shadcn/ui 风格 + 马卡龙配色
+    │   └── script.js       # 前端逻辑（数据刷新、密码验证、复制）
+    └── templates/
+        └── index.html      # 主页面模板
 ```
 
-## 🔧 技术栈
+## 技术栈
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | [Gost](https://github.com/go-gost/gost) | 3.2.6 | 代理服务核心 |
 | Alpine Linux | latest | 基础镜像 |
-| Python Flask | latest | Web 管理界面 |
-| dcron | - | 定时任务 |
-| curl & jq | - | API 请求和 JSON 解析 |
+| Python Flask | latest | Web 管理面板后端 |
+| dcron | - | 定时任务调度 |
+| curl + jq | - | API 请求和 JSON 解析 |
 
-## 📊 性能建议
+## 更新日志
 
-- **代理数量**: 建议 10-25 个，平衡性能和可用性
-- **更新频率**: 建议 5-10 分钟，避免频繁 API 请求
-- **区域选择**: 选择地理位置接近的代理，降低延迟
+### v2.1.0
+- Web 面板 UI 改造：shadcn/ui 风格 + 马卡龙配色
+- 新增 SOCKS5 代理地址展示（密码保护 + 一键复制）
+- 中文排版优化（字体、行高、字间距）
+- 新增 `/api/socks5-address` 接口
+- 支持 `PANEL_PASSWORD` 和 `SOCKS5_HOST` 环境变量
 
-## 📝 更新日志
+### v2.0.0
+- 新增 Web 管理界面
+- 实时代理状态监控
+- 日志查看功能
 
-### v2.0.0 (2024-11-24)
-- ✨ 新增 Web 管理界面
-- 📊 实时代理状态监控
-- 📝 日志查看功能
-- 🎨 优化代码和文档
+### v1.0.0
+- 初始版本发布
+- Webshare API 集成
+- 自动热重载
 
-### v1.0.0 (2024-01-01)
-- 🎉 初始版本发布
-- 🔄 支持 Webshare API 集成
-- 🔥 实现自动热重载
-
-## 📄 许可证
+## 许可证
 
 本项目采用 [MIT License](LICENSE) 开源。
 
-## 🔗 相关链接
+## 相关链接
 
 - [Gost 官方文档](https://gost.run/)
 - [Webshare 官网](https://www.webshare.io/)

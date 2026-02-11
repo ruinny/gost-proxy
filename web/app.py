@@ -13,6 +13,7 @@ app = Flask(__name__)
 # 配置路径
 CONFIG_FILE = '/app/config/gost.yml'
 LOG_FILE = '/app/logs/update.log'
+PANEL_PASSWORD = os.environ.get('PANEL_PASSWORD', 'qwert123')
 
 def check_gost_running():
     """检查 Gost 进程是否运行"""
@@ -130,7 +131,11 @@ def get_config():
 
 @app.route('/api/socks5-address')
 def get_socks5_address():
-    """获取 SOCKS5 代理连接地址"""
+    """获取 SOCKS5 代理连接地址（需要密码验证）"""
+    password = request.args.get('password', '')
+    if password != PANEL_PASSWORD:
+        return jsonify({'error': '密码错误'}), 403
+
     config = load_gost_config()
     if not config or 'services' not in config:
         return jsonify({'error': '配置文件未找到'}), 404

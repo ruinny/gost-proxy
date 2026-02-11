@@ -4,7 +4,6 @@ const REFRESH_INTERVAL = 10000;
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     refreshData();
-    updateSocks5Address();
     setInterval(refreshData, REFRESH_INTERVAL);
 });
 
@@ -18,20 +17,42 @@ async function refreshData() {
     updateRefreshTime();
 }
 
-// 获取并展示 SOCKS5 代理地址
-async function updateSocks5Address() {
+// 解锁 SOCKS5 地址（密码验证）
+async function unlockSocks5() {
+    const passwordInput = document.getElementById('panel-password');
+    const password = passwordInput.value.trim();
+    if (!password) {
+        passwordInput.focus();
+        return;
+    }
+
     try {
-        const response = await fetch('/api/socks5-address');
+        const response = await fetch('/api/socks5-address?password=' + encodeURIComponent(password));
         const data = await response.json();
-        const el = document.getElementById('socks5-address');
-        if (data.error) {
-            el.textContent = '暂无可用地址';
-        } else {
-            el.textContent = data.address;
+
+        if (response.status === 403) {
+            showToast('密码错误，请重试');
+            passwordInput.value = '';
+            passwordInput.focus();
+            return;
         }
+
+        if (data.error) {
+            showToast(data.error);
+            return;
+        }
+
+        // 验证成功，切换显示
+        document.getElementById('socks5-address').textContent = data.address;
+        document.getElementById('socks5-auth').style.display = 'none';
+        document.getElementById('socks5-reveal').style.display = 'block';
+        const badge = document.getElementById('socks5-badge');
+        badge.textContent = '已解锁';
+        badge.classList.remove('badge-locked');
+        badge.classList.add('badge-unlocked');
     } catch (error) {
-        console.error('获取 SOCKS5 地址失败:', error);
-        document.getElementById('socks5-address').textContent = '加载失败';
+        console.error('验证失败:', error);
+        showToast('网络错误，请重试');
     }
 }
 

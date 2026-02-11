@@ -128,6 +128,41 @@ header h1 {
     color: var(--text-secondary);
 }
 
+/* SOCKS5 密码输入 */
+.socks5-input {
+    flex: 1;
+    font-size: 0.9em;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    color: var(--text);
+    background: #FAFAF7;
+    transition: border-color 0.15s;
+}
+
+.socks5-input:focus {
+    border-color: var(--pink);
+}
+
+.socks5-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.badge-locked {
+    background: var(--text-secondary);
+}
+
+.badge-unlocked {
+    background: var(--mint);
+}
+
+.socks5-auth-error {
+    color: #C62828;
+    font-size: 0.8em;
+    margin-top: 4px;
+}
+
 /* === 状态卡片 === */
 .status-cards {
     display: grid;

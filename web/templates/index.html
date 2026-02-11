@@ -17,13 +17,24 @@
         <section class="socks5-section">
             <div class="socks5-header">
                 <h2>SOCKS5 代理地址</h2>
-                <span class="socks5-badge">可直接使用</span>
+                <span id="socks5-badge" class="socks5-badge badge-locked">需要验证</span>
             </div>
-            <div class="socks5-body">
-                <code id="socks5-address" class="socks5-address">加载中...</code>
-                <button id="copy-btn" class="btn-copy" onclick="copySocks5Address()">复制</button>
+            <!-- 密码输入状态 -->
+            <div id="socks5-auth" class="socks5-auth">
+                <div class="socks5-body">
+                    <input id="panel-password" type="password" class="socks5-input" placeholder="输入访问密码" onkeydown="if(event.key==='Enter')unlockSocks5()">
+                    <button class="btn-copy" onclick="unlockSocks5()">解锁</button>
+                </div>
+                <p class="socks5-hint">输入密码后查看 SOCKS5 代理连接地址</p>
             </div>
-            <p class="socks5-hint">将此地址配置到浏览器或应用的 SOCKS5 代理设置中即可使用</p>
+            <!-- 地址展示状态（默认隐藏） -->
+            <div id="socks5-reveal" class="socks5-reveal" style="display:none">
+                <div class="socks5-body">
+                    <code id="socks5-address" class="socks5-address">-</code>
+                    <button id="copy-btn" class="btn-copy" onclick="copySocks5Address()">复制</button>
+                </div>
+                <p class="socks5-hint">将此地址配置到浏览器或应用的 SOCKS5 代理设置中即可使用</p>
+            </div>
         </section>
 
         <!-- 系统状态卡片 -->
