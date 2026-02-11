@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import yaml
 import os
 import subprocess
@@ -52,7 +52,7 @@ def get_last_update_time():
             last_update = datetime.fromtimestamp(mtime)
             now = datetime.now()
             diff = now - last_update
-            
+
             if diff.seconds < 60:
                 return f"{diff.seconds}秒前"
             elif diff.seconds < 3600:
@@ -127,6 +127,46 @@ def get_config():
     if config:
         return jsonify(config)
     return jsonify({'error': 'Config file not found'}), 404
+
+@app.route('/api/socks5-address')
+def get_socks5_address():
+    """获取 SOCKS5 代理连接地址"""
+    config = load_gost_config()
+    if not config or 'services' not in config:
+        return jsonify({'error': '配置文件未找到'}), 404
+
+    port = '10808'
+    username = ''
+    password = ''
+
+    for service in config['services']:
+        handler = service.get('handler', {})
+        if handler.get('type') == 'socks5':
+            addr = service.get('addr', ':10808')
+            port = addr.split(':')[-1] or '10808'
+            auth = handler.get('auth', {})
+            username = auth.get('username', '')
+            password = auth.get('password', '')
+            break
+
+    host = os.environ.get('SOCKS5_HOST', '')
+    if not host:
+        req_host = request.host
+        # 去掉端口号，只保留主机名
+        host = req_host.split(':')[0]
+
+    if username and password:
+        address = f"socks5://{username}:{password}@{host}:{port}"
+    else:
+        address = f"socks5://{host}:{port}"
+
+    return jsonify({
+        'address': address,
+        'host': host,
+        'port': port,
+        'username': username,
+        'has_auth': bool(username and password)
+    })
 
 if __name__ == '__main__':
     # 确保日志目录存在

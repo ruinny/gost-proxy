@@ -3,12 +3,8 @@ const REFRESH_INTERVAL = 10000;
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Gost 代理池管理面板已加载');
-    
-    // 立即加载数据
     refreshData();
-    
-    // 设置自动刷新
+    updateSocks5Address();
     setInterval(refreshData, REFRESH_INTERVAL);
 });
 
@@ -22,34 +18,75 @@ async function refreshData() {
     updateRefreshTime();
 }
 
+// 获取并展示 SOCKS5 代理地址
+async function updateSocks5Address() {
+    try {
+        const response = await fetch('/api/socks5-address');
+        const data = await response.json();
+        const el = document.getElementById('socks5-address');
+        if (data.error) {
+            el.textContent = '暂无可用地址';
+        } else {
+            el.textContent = data.address;
+        }
+    } catch (error) {
+        console.error('获取 SOCKS5 地址失败:', error);
+        document.getElementById('socks5-address').textContent = '加载失败';
+    }
+}
+
+// 一键复制 SOCKS5 地址
+async function copySocks5Address() {
+    const address = document.getElementById('socks5-address').textContent;
+    if (!address || address === '加载中...' || address === '加载失败') return;
+
+    try {
+        await navigator.clipboard.writeText(address);
+        showToast('已复制到剪贴板');
+    } catch {
+        // fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = address;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('已复制到剪贴板');
+    }
+}
+
+// Toast 提示
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
 // 更新系统状态
 async function updateStatus() {
     try {
         const response = await fetch('/api/status');
         const data = await response.json();
-        
-        // 更新 Gost 状态
+
         const statusElement = document.getElementById('gost-status');
         if (data.gost_running) {
-            statusElement.textContent = '🟢 运行中';
-            statusElement.style.color = '#28a745';
+            statusElement.textContent = '运行中';
+            statusElement.style.color = '#2E7D32';
         } else {
-            statusElement.textContent = '🔴 已停止';
-            statusElement.style.color = '#dc3545';
+            statusElement.textContent = '已停止';
+            statusElement.style.color = '#C62828';
         }
-        
-        // 更新代理总数
-        document.getElementById('proxy-count').textContent = `${data.proxy_count} 个`;
-        
-        // 更新最后更新时间
+
+        document.getElementById('proxy-count').textContent = data.proxy_count + ' 个';
         document.getElementById('last-update').textContent = data.last_update;
-        
-        // 更新监听端口
         document.getElementById('listen-port').textContent = data.listen_port;
-        
+
     } catch (error) {
         console.error('获取状态失败:', error);
-        document.getElementById('gost-status').textContent = '❌ 错误';
+        document.getElementById('gost-status').textContent = '错误';
     }
 }
 
@@ -58,19 +95,18 @@ async function updateProxies() {
     try {
         const response = await fetch('/api/proxies');
         const proxies = await response.json();
-        
+
         const tbody = document.getElementById('proxy-list');
-        
+
         if (proxies.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="loading">暂无代理数据</td></tr>';
             return;
         }
-        
-        // 生成表格行
+
         tbody.innerHTML = proxies.map(proxy => {
             const statusClass = proxy.status === 'active' ? 'status-active' : 'status-inactive';
-            const statusText = proxy.status === 'active' ? '🟢 活跃' : '🔴 离线';
-            
+            const statusText = proxy.status === 'active' ? '活跃' : '离线';
+
             return `
                 <tr>
                     <td>${escapeHtml(proxy.name)}</td>
@@ -80,10 +116,10 @@ async function updateProxies() {
                 </tr>
             `;
         }).join('');
-        
+
     } catch (error) {
         console.error('获取代理列表失败:', error);
-        document.getElementById('proxy-list').innerHTML = 
+        document.getElementById('proxy-list').innerHTML =
             '<tr><td colspan="4" class="loading">加载失败</td></tr>';
     }
 }
@@ -93,17 +129,16 @@ async function updateLogs() {
     try {
         const response = await fetch('/api/logs');
         const logs = await response.json();
-        
+
         const logsContent = document.getElementById('logs-content');
-        
+
         if (logs.length === 0) {
             logsContent.textContent = '暂无日志记录';
             return;
         }
-        
-        // 显示日志（最新的在上面）
+
         logsContent.textContent = logs.reverse().join('\n');
-        
+
     } catch (error) {
         console.error('获取日志失败:', error);
         document.getElementById('logs-content').textContent = '日志加载失败';
@@ -119,8 +154,7 @@ async function refreshLogs() {
 // 更新刷新时间
 function updateRefreshTime() {
     const now = new Date();
-    const timeString = now.toLocaleTimeString('zh-CN');
-    document.getElementById('refresh-time').textContent = timeString;
+    document.getElementById('refresh-time').textContent = now.toLocaleTimeString('zh-CN');
 }
 
 // HTML 转义函数（防止 XSS）
@@ -133,16 +167,4 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-// 格式化时间
-function formatTime(timestamp) {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString('zh-CN');
-}
-
-// 显示通知（可选功能）
-function showNotification(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    // 可以在这里添加更复杂的通知UI
 }

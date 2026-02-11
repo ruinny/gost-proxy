@@ -9,35 +9,44 @@
 <body>
     <div class="container">
         <header>
-            <h1>🌐 Gost 代理池管理面板</h1>
+            <h1>Gost 代理池管理面板</h1>
             <p class="subtitle">实时监控代理状态和系统信息</p>
         </header>
 
+        <!-- SOCKS5 代理地址 -->
+        <section class="socks5-section">
+            <div class="socks5-header">
+                <h2>SOCKS5 代理地址</h2>
+                <span class="socks5-badge">可直接使用</span>
+            </div>
+            <div class="socks5-body">
+                <code id="socks5-address" class="socks5-address">加载中...</code>
+                <button id="copy-btn" class="btn-copy" onclick="copySocks5Address()">复制</button>
+            </div>
+            <p class="socks5-hint">将此地址配置到浏览器或应用的 SOCKS5 代理设置中即可使用</p>
+        </section>
+
         <!-- 系统状态卡片 -->
         <section class="status-cards">
-            <div class="card">
-                <div class="card-icon">🟢</div>
+            <div class="card card-pink">
                 <div class="card-content">
                     <h3>Gost 状态</h3>
                     <p id="gost-status" class="card-value">检查中...</p>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-icon">📊</div>
+            <div class="card card-mint">
                 <div class="card-content">
                     <h3>代理总数</h3>
                     <p id="proxy-count" class="card-value">-</p>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-icon">🕐</div>
+            <div class="card card-lavender">
                 <div class="card-content">
                     <h3>最后更新</h3>
                     <p id="last-update" class="card-value">-</p>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-icon">🔌</div>
+            <div class="card card-lemon">
                 <div class="card-content">
                     <h3>监听端口</h3>
                     <p id="listen-port" class="card-value">10808</p>
@@ -46,10 +55,10 @@
         </section>
 
         <!-- 代理列表 -->
-        <section class="proxy-section">
-            <div class="section-header">
-                <h2>📋 代理列表</h2>
-                <button onclick="refreshData()" class="btn-refresh">🔄 刷新</button>
+        <section class="panel">
+            <div class="panel-header">
+                <h2>代理列表</h2>
+                <button onclick="refreshData()" class="btn-outline">刷新</button>
             </div>
             <div class="table-container">
                 <table id="proxy-table">
@@ -71,10 +80,10 @@
         </section>
 
         <!-- 日志查看 -->
-        <section class="logs-section">
-            <div class="section-header">
-                <h2>📝 最近日志</h2>
-                <button onclick="refreshLogs()" class="btn-refresh">🔄 刷新日志</button>
+        <section class="panel">
+            <div class="panel-header">
+                <h2>最近日志</h2>
+                <button onclick="refreshLogs()" class="btn-outline">刷新日志</button>
             </div>
             <div class="logs-container">
                 <pre id="logs-content">加载中...</pre>
@@ -86,6 +95,9 @@
             <p>自动刷新间隔: 10秒 | 最后刷新: <span id="refresh-time">-</span></p>
         </footer>
     </div>
+
+    <!-- 复制成功提示 -->
+    <div id="toast" class="toast">已复制到剪贴板</div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
